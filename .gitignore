@@ -1,0 +1,16 @@
+node_modules
+
+# Ignore root .env
+.env
+
+# Ignore root node_modules
+/node_modules
+
+# Ignore backend .env
+/aivbackend/.env
+
+# Ignore backend node_modules
+/aivbackend/node_modules
+
+# Optional: macOS system files
+.DS_Store
