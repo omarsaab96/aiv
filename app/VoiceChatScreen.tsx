@@ -48,6 +48,7 @@ export default function VoiceChatScreen() {
     const TAP_THRESHOLD_MS = 500;
     const selectedVoiceIdRef = useRef(selectedVoiceId);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [speechLoading, setSpeechLoading] = useState(false);
     const [previewing, setPreviewing] = useState(null);
     const previewRef = useRef<Audio.Sound | null>(null);
     const [visibleVoicesCount, setVisibleVoicesCount] = useState(3);
@@ -315,7 +316,7 @@ export default function VoiceChatScreen() {
             console.info('AI response:', text);
             await speakWithVoice(text);
 
-            if (text.includes("Please choose a voice from the list.")||text.includes("Just say the name of the voice you want from the list below.")||text.includes("Here is a list of available voices.")) {
+            if (text.includes("Please choose a voice from the list.") || text.includes("Just say the name of the voice you want from the list below.") || text.includes("Here is a list of available voices.")) {
                 setMessages((prev) => [...prev, { type: 'dialog', title: "Voice menu" }]);
             }
 
