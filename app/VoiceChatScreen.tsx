@@ -28,6 +28,28 @@ const screenHeight = Dimensions.get('window').height;
 const ELEVEN_API_KEY = 'sk_21d5a8b88e8f033bc02a25170a7dee126d00e4dd430af5e8';
 const ELEVEN_BASE = 'https://api.elevenlabs.io/v1';
 
+const recordingOptions = {
+    android: {
+        extension: '.m4a',
+        outputFormat: 2, // MPEG_4
+        audioEncoder: 3, // AAC
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        bitRate: 64000,
+    },
+    ios: {
+        extension: '.caf',
+        audioQuality: 96, // AUDIO_QUALITY_HIGH
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        bitRate: 64000,
+        linearPCMBitDepth: 16,
+        linearPCMIsBigEndian: false,
+        linearPCMIsFloat: false,
+    },
+    isMeteringEnabled: true,
+};
+
 export default function VoiceChatScreen() {
     const router = useRouter();
     const { name = 'User', language = 'en' } = useLocalSearchParams();
@@ -45,20 +67,23 @@ export default function VoiceChatScreen() {
     const popupOpacityAnim = useRef(new Animated.Value(0)).current;
     const popupTranslateYAnim = useRef(new Animated.Value(screenHeight)).current;
     const pressStartTimeRef = useRef<number | null>(null);
-    const TAP_THRESHOLD_MS = 500;
+    const TAP_THRESHOLD_MS = 100;
     const selectedVoiceIdRef = useRef(selectedVoiceId);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [speechLoading, setSpeechLoading] = useState(false);
     const [previewing, setPreviewing] = useState(null);
     const previewRef = useRef<Audio.Sound | null>(null);
     const [visibleVoicesCount, setVisibleVoicesCount] = useState(3);
+    const [isRecording, setIsRecording] = useState(false);
+    const [isPreparing, setIsPreparing] = useState(false);
+    const isRecordingRef = useRef(false);
 
     const isCancelledRef = useRef(false);
     const dragX = useRef(new Animated.Value(0)).current;
     const socketRef = useRef(null);
-    const ecoMode = false;
+    const ecoMode = true;
 
     const intervalRef = useRef(null);
+
     const bubbleColors = [
         'rgba(15, 248, 128, 1)',
         'rgba(47, 207, 243, 0.5)',
@@ -84,6 +109,7 @@ export default function VoiceChatScreen() {
         useRef(new Animated.Value(1)).current,
         useRef(new Animated.Value(1)).current,
     ];
+
     const startDrift = () => {
         moveAnims.forEach((anim, i) => {
             const scaleAnim = scaleAnims[i];
@@ -141,6 +167,8 @@ export default function VoiceChatScreen() {
                 setIsCancelled(false);
                 pressStartTimeRef.current = Date.now();
                 startRecording();
+
+                console.log("PRESSED");
             },
             onPanResponderMove: (evt, gestureState) => {
                 const newX = gestureState.dx < 0 ? Math.max(gestureState.dx, -300) : 0;
@@ -154,28 +182,25 @@ export default function VoiceChatScreen() {
                     setIsCancelled(false);
                 }
             },
-            onPanResponderRelease: () => {
+            onPanResponderRelease: async (evt, gestureState) => {
+                console.log("RELEASED");
+
                 const pressDuration = pressStartTimeRef.current ? (Date.now() - pressStartTimeRef.current) : 0;
                 pressStartTimeRef.current = null;
 
-                if (pressDuration < TAP_THRESHOLD_MS) {
-                    cancelRecording();
-                } else {
-
-                    if (isCancelledRef.current) {
-                        cancelRecording();
-                    } else {
-                        if (!recordingRef.current) {
-                            console.warn('RELEASE: recording is still null!');
-                        }
-                        stopRecording();
-                    }
-                }
                 Animated.timing(dragX, {
                     toValue: 0,
                     duration: 200,
                     useNativeDriver: true,
                 }).start();
+
+                if (pressDuration < TAP_THRESHOLD_MS || isCancelledRef.current) {
+                    console.log("WILLCANCEL")
+                    await cancelRecording();
+                } else {
+                    console.log("WILLSTOP")
+                    await stopRecording();
+                }
 
                 isCancelledRef.current = false;
                 setIsCancelled(false);
@@ -217,61 +242,69 @@ export default function VoiceChatScreen() {
     const speakWithVoice = async (text: string) => {
         if (ecoMode) {
             setIsSpeaking(true)
+            setMessages(prev => prev.map((msg, idx) =>
+                msg.status === 'pending' ? { ...msg, status: 'done' } : msg
+            ));
             Speech.speak(text);
             setIsSpeaking(false)
-            return;
-        }
+            if (text.includes("Please choose a voice from the list.") || text.includes("Just say the name of the voice you want from the list below.") || text.includes("Here is a list of available voices.")) {
+                setMessages((prev) => [...prev, { type: 'dialog', title: "Voice menu" }]);
+            }
+        } else {
+            const voiceId = selectedVoiceIdRef.current;
+            console.log('Speaking with ElevenLabs voice:', voiceId);
 
-        const voiceId = selectedVoiceIdRef.current;
-        console.log('Speaking with ElevenLabs voice:', voiceId);
-
-        try {
-            const url = `${ELEVEN_BASE}/text-to-speech/${voiceId}`;
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'xi-api-key': ELEVEN_API_KEY,
-                    'Content-Type': 'application/json',
-                    'Accept': 'audio/mpeg'
-                },
-                body: JSON.stringify({
-                    text,
-                    model_id: 'eleven_monolingual_v1',
-                    voice_settings: {
-                        stability: 0.5,
-                        similarity_boost: 0.75,
+            try {
+                const url = `${ELEVEN_BASE}/text-to-speech/${voiceId}`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'xi-api-key': ELEVEN_API_KEY,
+                        'Content-Type': 'application/json',
+                        'Accept': 'audio/mpeg'
                     },
-                }),
-            });
-
-            // console.log(res)
-
-            const blob = await res.blob();
-
-            // Save blob to file
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64data = reader.result.split(',')[1]; // remove data:audio/mpeg;base64,
-                const path = FileSystem.documentDirectory + 'speech.mp3';
-                await FileSystem.writeAsStringAsync(path, base64data, {
-                    encoding: FileSystem.EncodingType.Base64,
+                    body: JSON.stringify({
+                        text,
+                        model_id: 'eleven_monolingual_v1',
+                        voice_settings: {
+                            stability: 0.5,
+                            similarity_boost: 0.75,
+                        },
+                    }),
                 });
 
-                setIsSpeaking(true); // Start animations
+                // console.log(res)
 
-                const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+                const blob = await res.blob();
 
-                sound.setOnPlaybackStatusUpdate((status) => {
-                    if (status.didJustFinish || status.isBuffering === false && !status.isPlaying) {
-                        setIsSpeaking(false); // Stop animations
+                // Save blob to file
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const base64data = reader.result.split(',')[1]; // remove data:audio/mpeg;base64,
+                    const path = FileSystem.documentDirectory + 'speech.mp3';
+                    await FileSystem.writeAsStringAsync(path, base64data, {
+                        encoding: FileSystem.EncodingType.Base64,
+                    });
+
+                    const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+
+                    sound.setOnPlaybackStatusUpdate((status) => {
+                        if (status.didJustFinish || status.isBuffering === false && !status.isPlaying) {
+                            setIsSpeaking(false); // Stop animations
+                        }
+                    });
+
+                    setIsSpeaking(true)
+                    await sound.playAsync();
+
+                    if (text.includes("Please choose a voice from the list.") || text.includes("Just say the name of the voice you want from the list below.") || text.includes("Here is a list of available voices.")) {
+                        setMessages((prev) => [...prev, { type: 'dialog', title: "Voice menu" }]);
                     }
-                });
-
-                await sound.playAsync();
-            };
-            reader.readAsDataURL(blob);
-        } catch (error) {
-            console.error('Error during ElevenLabs playback:', error);
+                };
+                reader.readAsDataURL(blob);
+            } catch (error) {
+                console.error('Error during ElevenLabs playback:', error);
+            }
         }
     };
 
@@ -287,6 +320,7 @@ export default function VoiceChatScreen() {
     }, [isSpeaking]);
 
     useEffect(() => {
+        prepareRecorder();
         fetchVoices();
         startDrift();
     }, []);
@@ -312,14 +346,9 @@ export default function VoiceChatScreen() {
         });
 
         newSocket.on('ai_response', async ({ text }) => {
-            setMessages((prev) => [...prev, { type: 'ai', text }]);
+            setMessages((prev) => [...prev, { type: 'ai', text, status: 'pending' }]);
             console.info('AI response:', text);
             await speakWithVoice(text);
-
-            if (text.includes("Please choose a voice from the list.") || text.includes("Just say the name of the voice you want from the list below.") || text.includes("Here is a list of available voices.")) {
-                setMessages((prev) => [...prev, { type: 'dialog', title: "Voice menu" }]);
-            }
-
         });
 
         newSocket.on('voice_suggestion', ({ voiceName, voiceId }) => {
@@ -347,60 +376,108 @@ export default function VoiceChatScreen() {
         });
     };
 
-    const startRecording = async () => {
-        console.log('Recording started');
-        const { granted } = await Audio.requestPermissionsAsync();
-        if (!granted) {
-            console.warn('Microphone permission not granted');
-            return;
-        }
+    const prepareRecorder = async () => {
+        if (recordingRef.current || isPreparing) return;
 
-        const recordingOptions = {
-            android: {
-                extension: '.m4a',
-                outputFormat: 2, // MPEG_4
-                audioEncoder: 3, // AAC
-                sampleRate: 44100,
-                numberOfChannels: 2,
-                bitRate: 128000,
-            },
-            ios: {
-                extension: '.caf',
-                audioQuality: 96, // AUDIO_QUALITY_HIGH
-                sampleRate: 44100,
-                numberOfChannels: 2,
-                bitRate: 128000,
-                linearPCMBitDepth: 16,
-                linearPCMIsBigEndian: false,
-                linearPCMIsFloat: false,
-            },
-            web: {},
-            isMeteringEnabled: true,
-        };
-
+        setIsPreparing(true);
         try {
-            await Audio.requestPermissionsAsync();
-            await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+            const { granted } = await Audio.requestPermissionsAsync();
+            if (!granted) {
+                console.warn('Microphone permission not granted');
+                return;
+            }
+
+            await Audio.setAudioModeAsync({
+                allowsRecordingIOS: true,
+                playsInSilentModeIOS: true,
+            });
 
             const rec = new Audio.Recording();
             await rec.prepareToRecordAsync(recordingOptions);
-            await rec.startAsync();
             recordingRef.current = rec;
-            intervalRef.current = setInterval(() => {
-                pulse(0.2 + Math.random() * 0.3);
-            }, 100);
+        } catch (err) {
+            console.error("Failed to prepare recorder:", err);
+        }
+    };
 
-            setRecordingSeconds(0);
-            timerIntervalRef.current = setInterval(() => {
-                setRecordingSeconds(sec => sec + 1);
-            }, 1000);
+    const startRecording = async () => {
+        if (isRecording || isPreparing) {
+            console.log("isRecording is false");
+            return;
+        };
+
+        try {
+            if (!recordingRef.current) {
+                await prepareRecorder();
+            }
+
+            if (recordingRef.current) {
+                console.log('Starting recording...');
+                await recordingRef.current.startAsync();
+                isRecordingRef.current = true;
+                setIsRecording(true);
+
+                setRecordingSeconds(0);
+                timerIntervalRef.current = setInterval(() => {
+                    setRecordingSeconds(sec => sec + 1);
+                }, 1000);
+
+                intervalRef.current = setInterval(() => {
+                    pulse(0.2 + Math.random() * 0.3);
+                }, 100);
+            }
         } catch (err) {
             console.error('Failed to start recording:', err);
+            isRecordingRef.current = false;
+            setIsRecording(false);
         }
     };
 
     const stopRecording = async () => {
-        console.log('Recording stopped');
+        if (!isRecordingRef.current) {
+            console.log("isRecording is false");
+            return;
+        }
+
+        console.log('Stopping recording...');
+        isRecordingRef.current = false;
+        setIsRecording(false);
+
+        // Clear intervals immediately
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+        }
+
+        const recording = recordingRef.current;
+        if (!recording) {
+            console.log('No active recording');
+            return;
+        }
+
+        try {
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            console.log('Recording URI:', uri);
+
+            if (uri && socketRef.current?.connected) {
+                const base64 = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                socketRef.current.emit('audio_chunk', base64);
+                socketRef.current.emit('audio_end');
+            }
+        } catch (err) {
+            console.error('Failed to stop recording:', err);
+        } finally {
+            recordingRef.current = null;
+            setRecordingSeconds(0);
+            prepareRecorder();
+        }
 
         // if (ecoMode) {
         //     const text = "Hey, it's so good to meet you! I'm Froogle, your grocery shopping assistant. Let's talk about your grocery shopping routine! When do you usually go shopping? Is there a specific day that works best for you?";
@@ -409,55 +486,37 @@ export default function VoiceChatScreen() {
         //     return;
         // }
 
-        const recording = recordingRef.current;
-        if (!recording) {
-            console.log('No recording to stop (ref is null)');
-            return;
-        }
-
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-
-        try {
-            await recording.stopAndUnloadAsync();
-            const uri = recording.getURI();
-            recordingRef.current = null;
-
-            if (uri && socketRef.current) {
-                const base64 = await FileSystem.readAsStringAsync(uri, {
-                    encoding: FileSystem.EncodingType.Base64,
-                });
-
-                socketRef.current.emit('audio_chunk', base64);
-                socketRef.current.emit('audio_end');
-            }
-        } catch (err) {
-            console.error('Failed to stop and unload recording:', err);
-        }
-
-
     };
 
     const cancelRecording = async () => {
+        if (!isRecordingRef.current) return;
+        isRecordingRef.current = false;
+        setIsRecording(false);
+
+
+        // Clear intervals immediately
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+        }
+
         try {
             const recording = recordingRef.current;
             if (recording) {
                 await recording.stopAndUnloadAsync();
-                recordingRef.current = null;
             }
         } catch (error) {
             console.warn('Error canceling recording:', error);
+        } finally {
             recordingRef.current = null;
+            setRecordingSeconds(0);
+            prepareRecorder();
+            console.log('Recording cancelled');
         }
-
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-        setRecordingSeconds(0);
-        console.log('Recording cancelled')
     };
 
     const handlePreview = async (id: string, url: string) => {
@@ -527,7 +586,7 @@ export default function VoiceChatScreen() {
                                 msg.type === 'user' ? styles.userBubble : null
                             ]}
                         >
-                            {msg.type == 'dialog' ? (
+                            {msg.type === 'dialog' ? (
                                 <View style={[
                                     styles.chatText,
                                     msg.type === 'user' ? styles.userText : null,
@@ -597,7 +656,9 @@ export default function VoiceChatScreen() {
                                         msg.type === 'user' ? styles.userText : null
                                     ]}
                                 >
-                                    {msg.text}
+                                    {msg.type == 'ai' && msg.status == 'pending' && 'Thinking'}
+                                    {msg.type == 'ai' && msg.status == 'done' && msg.text}
+                                    {msg.type == 'user' && msg.text}
                                 </Text>
                             )}
                         </View>
@@ -632,7 +693,6 @@ export default function VoiceChatScreen() {
             </TouchableOpacity> */}
 
             <View style={styles.micContainer}>
-
                 <Animated.Text style={[styles.micContainerTimer, { opacity: infoOpacity }]}>
                     {recordingRef.current && <Text>{formatTimer(recordingSeconds)}</Text>}
                 </Animated.Text>
@@ -656,6 +716,8 @@ export default function VoiceChatScreen() {
                         styles.micButton,
                         {
                             transform: [{ translateX: dragX }],
+                            backgroundColor: isCancelled ? '#ff3b30' : '#25b694',
+
                         },
                     ]}
                 >

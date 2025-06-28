@@ -1,5 +1,4 @@
 import { Picker } from '@react-native-picker/picker';
-import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useRef, useState } from 'react';
