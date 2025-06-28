@@ -23,7 +23,7 @@ const screenWidth = Dimensions.get('window').width;
 const screenHeight = Dimensions.get('window').height;
 
 
-//working code 
+//working code//
 
 const ELEVEN_API_KEY = 'sk_21d5a8b88e8f033bc02a25170a7dee126d00e4dd430af5e8';
 const ELEVEN_BASE = 'https://api.elevenlabs.io/v1';
