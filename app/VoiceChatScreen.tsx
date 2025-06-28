@@ -694,10 +694,10 @@ export default function VoiceChatScreen() {
 
             <View style={styles.micContainer}>
                 <Animated.Text style={[styles.micContainerTimer, { opacity: infoOpacity }]}>
-                    {recordingRef.current && <Text>{formatTimer(recordingSeconds)}</Text>}
+                    {isRecording && <Text>{formatTimer(recordingSeconds)}</Text>}
                 </Animated.Text>
 
-                {recordingRef.current &&
+                {isRecording &&
                     <Animated.View style={[styles.micContainerHint, { opacity: infoOpacity }]}>
                         <View style={styles.micContainerHintWrapper}>
                             <Entypo name="chevron-left" size={24} color="black" />
@@ -705,7 +705,7 @@ export default function VoiceChatScreen() {
                         </View>
                     </Animated.View>
                 }
-                {!recordingRef.current &&
+                {!isRecording &&
                     <View style={styles.micContainerHint}>
                         <Text style={styles.micContainerHintText}>Hold to record</Text>
                     </View>
@@ -814,23 +814,23 @@ const styles = StyleSheet.create({
     },
     chatBubble: {
         marginBottom: 10,
-        flexDirection: 'row'
+        flexDirection: 'row',
     },
     userBubble: {
-        flexDirection: 'row-reverse'
+        flexDirection: 'row-reverse',
     },
     chatText: {
         backgroundColor: 'rgba(163, 169, 168, 0.2)',
         fontSize: 16,
         padding: 10,
         borderRadius: 20,
-        borderBottomLeftRadius: 0,
+        borderTopLeftRadius: 0,
         maxWidth: '80%',
     },
     userText: {
         backgroundColor: 'rgba(37, 182, 148, 0.2)',
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 0
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 0,
     },
     popupContainer: {
         position: 'absolute',
