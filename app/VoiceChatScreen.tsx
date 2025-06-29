@@ -323,7 +323,27 @@ export default function VoiceChatScreen() {
         prepareRecorder();
         fetchVoices();
         startDrift();
+
+        return () => {
+            // Cleanup on unmount
+            if (recordingRef.current) {
+                recordingRef.current.stopAndUnloadAsync().catch(console.warn);
+                recordingRef.current = null;
+            }
+            if (previewRef.current) {
+                previewRef.current.unloadAsync().catch(console.warn);
+                previewRef.current = null;
+            }
+            clearAllIntervals();
+        };
     }, []);
+
+    const clearAllIntervals = () => {
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        timerIntervalRef.current = null;
+        intervalRef.current = null;
+    };
 
     useEffect(() => {
         selectedVoiceIdRef.current = selectedVoiceId;
