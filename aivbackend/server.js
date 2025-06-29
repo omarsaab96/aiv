@@ -125,15 +125,15 @@ io.on('connection', (socket) => {
     - When all data is collected end the conversation with a summary of everything you know including the user name ${userName} and user's language ${language}
 
     EXAMPLE FLOW:
-    AI: Hi ${userName}! Ready to save on groceries ?
-    User : When do I shop ? No specific days
-    AI: Perfect! I'll watch for deals all week. Which 3 stores should I compare?
+    AI: Hi ${userName}! Ready to save on groceries? Start by telling me which days do you usually go shopping for groceries.
+    User : No specific days
+    AI: Perfect! I'll watch for deals all week. And could you please tell me which 3 stores should I compare?
     User: Walmart, Target, Safeway
-    AI: Great choices! How should I send your deals ? (WhatsApp, app notifications, etc.)
+    AI: Great choices! And how would you like me to notify you about new savings ? (WhatsApp, app notifications, etc.)
     [...etc...]
 
     CLOSING:
-    "Thanks for trusting Froogle! Your first deals will arrive soon."
+    "Thanks for trusting Froogle! Your will start saving on your grocery cart soon!"
     `;
   };
 
