@@ -69,6 +69,7 @@ io.on('connection', (socket) => {
     2. SECOND PHASE - GROCERIES:
       - Only begin after explicit voice confirmation
       - Start with shopping habits question
+      - keep gathering info until all the data is collected
 
     VOICE SELECTION DIALOGUE RULES:
     - Initial message: Present voice options clearly
@@ -117,9 +118,11 @@ io.on('connection', (socket) => {
     - LENGTH: Keep responses under 3 sentences
     - Do not ask direct questions where possible
     - You know your goals and objectives
-    - Do not say "How can I assist you today" 
+    - Do not say "How can I assist you today"
     - If user asks about voices: "Here is a list of available voices. Just tell me the voice name you like." then pause the grocery conversation until you have a voice confirmation
     - If user confirms a voice by its name: "This is the voice you chose. Do you like it or you would like to change it again?" then either loop back with the voice until the user chooses or continue the grocery conversation i user confirms again
+    - Once in the conversation assure the user that this process will be for one time only saying "Don't worry, you need to answer these questions only for the first time just to get to know you better and help you save on your cart"
+    - When all data is collected end the conversation with a summary of everything you know including the user name ${userName} and user's language ${language}
 
     EXAMPLE FLOW:
     AI: Hi ${userName}! Ready to save on groceries ?
@@ -152,6 +155,31 @@ io.on('connection', (socket) => {
     return patterns.some(pattern => pattern.test(text));
   };
 
+  const isAgreeing = async (text) => {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `
+          You are a helpful assistant that classifies whether the user's input indicates agreement or disagreement.
+          Respond with only one word: "yes", "no", or "unsure".
+          `
+        },
+        {
+          role: "user",
+          content: text
+        }
+      ]
+    });
+
+    const answer = completion.choices[0].message.content.trim().toLowerCase();
+
+    if (answer === "yes") return true;
+    if (answer === "no") return false;
+    return null;
+  }
+
   socket.on('setup', ({ language, name, voices }) => {
     userLang = language || 'en';
     userName = name || 'User';
@@ -180,7 +208,7 @@ io.on('connection', (socket) => {
       ];
 
       // Initial greeting focusing only on voice selection
-      const greeting = `Hi ${userName}! I'm Froogle, your AI grocery shopping assistant.\nI'm currently using my default voice, but I have other options available.\nJust say the name of the voice you want from the list below.`;
+      const greeting = `Hi ${userName}! I'm Froogle, your AI grocery shopping assistant.I will help you save on your carts!\nFirst let's start by customizing my voice to your liking. I'm currently using my default voice, but I have other options available.\nJust say the name of the voice you want from the list below.`;
 
       socket.emit('ai_response', {
         text: greeting,
@@ -263,7 +291,7 @@ io.on('connection', (socket) => {
           return;
         } else {
           socket.emit('ai_response', {
-            text: `Sure!\nJust say the name of the voice you want from the list below.`,
+            text: `Sure!\nJust tell me the name of the voice you want from the list below.`,
             triggerVoiceDialog: true
           });
           return;
@@ -280,7 +308,7 @@ io.on('connection', (socket) => {
           const response = `I'm now speaking as ${mentionedVoice.name}.\nDo you like this voice or would you like to choose another?`;
           socket.emit('ai_response', { text: response });
           return;
-        } else if (userText.toLowerCase().match(/(yes|fine|good|nice|ok|alright|continue|keep)/)) {
+        } else if (await isAgreeing(userText)) {
           voiceSelectionActive = false;
 
           let response;

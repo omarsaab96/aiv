@@ -11,6 +11,7 @@ import {
     Dimensions,
     Easing,
     PanResponder,
+    SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
@@ -70,12 +71,15 @@ export default function VoiceChatScreen() {
     const TAP_THRESHOLD_MS = 100;
     const selectedVoiceIdRef = useRef(selectedVoiceId);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [initialLoad, setInitialLoad] = useState(false);
     const [previewing, setPreviewing] = useState(null);
     const previewRef = useRef<Audio.Sound | null>(null);
     const [visibleVoicesCount, setVisibleVoicesCount] = useState(3);
     const [isRecording, setIsRecording] = useState(false);
     const [isPreparing, setIsPreparing] = useState(false);
     const isRecordingRef = useRef(false);
+    const speechSoundRef = useRef<Audio.Sound | null>(null);
+    const isSpeakingRef = useRef(false); // For Eco Mode
 
     const isCancelledRef = useRef(false);
     const dragX = useRef(new Animated.Value(0)).current;
@@ -239,14 +243,43 @@ export default function VoiceChatScreen() {
         }
     };
 
+    const stopSpeech = async () => {
+        // Stop Eco Mode speech
+        if (isSpeakingRef.current) {
+            Speech.stop();
+            isSpeakingRef.current = false;
+            setIsSpeaking(false);
+        }
+
+        // Stop Non-Eco Mode speech
+        if (speechSoundRef.current) {
+            speechSoundRef.current.stopAsync();
+            speechSoundRef.current.unloadAsync();
+            speechSoundRef.current = null;
+            setIsSpeaking(false);
+        }
+    };
+
     const speakWithVoice = async (text: string) => {
         if (ecoMode) {
+            isSpeakingRef.current = true;
+            setInitialLoad(false)
             setIsSpeaking(true)
             setMessages(prev => prev.map((msg, idx) =>
                 msg.status === 'pending' ? { ...msg, status: 'done' } : msg
             ));
-            Speech.speak(text);
-            setIsSpeaking(false)
+
+            Speech.speak(text, {
+                onDone: () => {
+                    isSpeakingRef.current = false;
+                    setIsSpeaking(false);
+                },
+                onStopped: () => {
+                    isSpeakingRef.current = false;
+                    setIsSpeaking(false);
+                },
+            });
+
             if (text.includes("Please choose a voice from the list.") || text.includes("Just say the name of the voice you want from the list below.") || text.includes("Here is a list of available voices.")) {
                 setMessages((prev) => [...prev, { type: 'dialog', title: "Voice menu" }]);
             }
@@ -287,14 +320,17 @@ export default function VoiceChatScreen() {
                     });
 
                     const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: true });
+                    speechSoundRef.current = sound;
 
                     sound.setOnPlaybackStatusUpdate((status) => {
                         if (status.didJustFinish || status.isBuffering === false && !status.isPlaying) {
                             setIsSpeaking(false); // Stop animations
+                            speechSoundRef.current = null;
                         }
                     });
 
                     setIsSpeaking(true)
+                    setInitialLoad(false)
                     await sound.playAsync();
 
                     if (text.includes("Please choose a voice from the list.") || text.includes("Just say the name of the voice you want from the list below.") || text.includes("Here is a list of available voices.")) {
@@ -325,6 +361,7 @@ export default function VoiceChatScreen() {
         startDrift();
 
         return () => {
+            stopSpeech();
             // Cleanup on unmount
             if (recordingRef.current) {
                 recordingRef.current.stopAndUnloadAsync().catch(console.warn);
@@ -361,6 +398,7 @@ export default function VoiceChatScreen() {
             newSocket.emit('setup', { language, name, voices: formattedVoices, })
 
             setTimeout(() => {
+                setInitialLoad(true)
                 newSocket.emit('greet_user');
             }, 500);
         });
@@ -421,6 +459,7 @@ export default function VoiceChatScreen() {
     };
 
     const startRecording = async () => {
+        await stopSpeech();
         if (isRecording || isPreparing) {
             console.log("isRecording is false");
             return;
@@ -583,10 +622,10 @@ export default function VoiceChatScreen() {
     const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
 
     return (
-        <View style={styles.container}>
-            {/* <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                <Text style={styles.backText}>← Back</Text>
-            </TouchableOpacity> */}
+        <SafeAreaView style={styles.container}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <Text style={styles.backText}>&lt; Back</Text>
+            </TouchableOpacity>
 
             <View style={styles.chatWrapper}>
                 <LinearGradient
@@ -598,91 +637,100 @@ export default function VoiceChatScreen() {
                     ref={scrollRef}
                     onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
                 >
-                    {messages.map((msg, idx) => (
-                        <View
-                            key={idx}
-                            style={[
-                                styles.chatBubble,
-                                msg.type === 'user' ? styles.userBubble : null
-                            ]}
-                        >
-                            {msg.type === 'dialog' ? (
-                                <View style={[
-                                    styles.chatText,
-                                    msg.type === 'user' ? styles.userText : null,
-                                    { width: '100%' }
-                                ]}>
-                                    {!voices && <Text>Loading voices...</Text>}
-                                    {voices && (
-                                        <>
-                                            {voices.slice(0, visibleVoicesCount).map((v) => (
-                                                <View
-                                                    key={v.voice_id}
-                                                    style={[styles.voice, {
-                                                        // backgroundColor: selectedVoiceId === v.voice_id ? 'rgb(34, 169, 137)' : '#ddd'
-                                                        backgroundColor: '#ddd'
-                                                    }]}>
+                    {initialLoad ?
+                        (
+                            <Text>Loading</Text>
+                        ) : (
 
-                                                    <View style={styles.voiceHead}>
-                                                        <View style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}>
-                                                            {/* <TouchableOpacity onPress={() => setSelectedVoiceId(v.voice_id)}  style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}> */}
-                                                            <Text style={[
-                                                                styles.voiceTitle,
-                                                                // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
-                                                            ]
-                                                            }>{v.name}</Text>
-                                                            {v.labels?.accent && <Text style={
-                                                                [styles.voiceAccent,
-                                                                    // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
-
-                                                                ]}>{capitalize(v.labels.accent)}</Text>}
-                                                            {v.labels?.language && <Text style={
-                                                                [styles.voiceLanguage,
-                                                                    // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
-
-                                                                ]}>{capitalize(v.labels.language)}</Text>}
-                                                            {/* </TouchableOpacity> */}
-                                                        </View>
-                                                        <View>
-                                                            {previewing == v.voice_id ? (
-                                                                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={handleStop}>
-                                                                    <FontAwesome name="stop" size={12} color="black" />
-                                                                    <Text>Stop</Text>
-                                                                </TouchableOpacity>
-                                                            ) : (
-                                                                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={() => handlePreview(v.voice_id, v.preview_url)}>
-                                                                    <FontAwesome name="play" size={12} color="black" />
-                                                                    <Text>Preview</Text>
-                                                                </TouchableOpacity>
-                                                            )}
-                                                        </View>
-                                                    </View>
-
-                                                </View>
-                                            ))}
-
-                                            {visibleVoicesCount < voices.length && (
-                                                <TouchableOpacity onPress={() => setVisibleVoicesCount(prev => prev + 5)}>
-                                                    <Text style={{ alignSelf: 'center', color: '#007AFF', marginTop: 8 }}>Show more voices</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                        </>
-                                    )}
-                                </View>
-                            ) : (
-                                <Text
+                            messages.map((msg, idx) => (
+                                <View
+                                    key={idx}
                                     style={[
-                                        styles.chatText,
-                                        msg.type === 'user' ? styles.userText : null
+                                        styles.chatBubble,
+                                        msg.type === 'user' ? styles.userBubble : null
                                     ]}
                                 >
-                                    {msg.type == 'ai' && msg.status == 'pending' && 'Thinking'}
-                                    {msg.type == 'ai' && msg.status == 'done' && msg.text}
-                                    {msg.type == 'user' && msg.text}
-                                </Text>
-                            )}
-                        </View>
-                    ))}
+                                    {msg.type === 'dialog' ? (
+                                        <View style={[
+                                            styles.chatText,
+                                            msg.type === 'user' ? styles.userText : null,
+                                            { width: '100%' }
+                                        ]}>
+                                            {!voices && <Text>Loading voices...</Text>}
+                                            {voices && (
+                                                <>
+                                                    {voices.slice(0, visibleVoicesCount).map((v) => (
+                                                        <View
+                                                            key={v.voice_id}
+                                                            style={[styles.voice, {
+                                                                // backgroundColor: selectedVoiceId === v.voice_id ? 'rgb(34, 169, 137)' : '#ddd'
+                                                                backgroundColor: '#ddd'
+                                                            }]}>
+
+                                                            <View style={styles.voiceHead}>
+                                                                <View style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}>
+                                                                    {/* <TouchableOpacity onPress={() => setSelectedVoiceId(v.voice_id)}  style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}> */}
+                                                                    <Text style={[
+                                                                        styles.voiceTitle,
+                                                                        // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
+                                                                    ]
+                                                                    }>{v.name}</Text>
+                                                                    {v.labels?.accent && <Text style={
+                                                                        [styles.voiceAccent,
+                                                                            // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
+
+                                                                        ]}>{capitalize(v.labels.accent)}</Text>}
+                                                                    {v.labels?.language && <Text style={
+                                                                        [styles.voiceLanguage,
+                                                                            // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
+
+                                                                        ]}>{capitalize(v.labels.language)}</Text>}
+                                                                    {/* </TouchableOpacity> */}
+                                                                </View>
+                                                                <View>
+                                                                    {previewing == v.voice_id ? (
+                                                                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={handleStop}>
+                                                                            <FontAwesome name="stop" size={12} color="black" />
+                                                                            <Text>Stop</Text>
+                                                                        </TouchableOpacity>
+                                                                    ) : (
+                                                                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={() => handlePreview(v.voice_id, v.preview_url)}>
+                                                                            <FontAwesome name="play" size={12} color="black" />
+                                                                            <Text>Preview</Text>
+                                                                        </TouchableOpacity>
+                                                                    )}
+                                                                </View>
+                                                            </View>
+
+                                                        </View>
+                                                    ))}
+
+                                                    {visibleVoicesCount < voices.length && (
+                                                        <TouchableOpacity onPress={() => setVisibleVoicesCount(prev => prev + 5)}>
+                                                            <Text style={{ alignSelf: 'center', color: '#007AFF', marginTop: 8 }}>Show more voices</Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </>
+                                            )}
+                                        </View>
+                                    ) : (
+                                        <Text
+                                            style={[
+                                                styles.chatText,
+                                                msg.type === 'user' ? styles.userText : null
+                                            ]}
+                                        >
+                                            {msg.type == 'ai' && msg.status == 'pending' && 'Thinking'}
+                                            {msg.type == 'ai' && msg.status == 'done' && msg.text}
+                                            {msg.type == 'user' && msg.text}
+                                        </Text>
+                                    )}
+                                </View>
+                            ))
+
+                        )
+                    }
+
                 </ScrollView>
             </View >
 
@@ -746,7 +794,7 @@ export default function VoiceChatScreen() {
                     </Text>
                 </Animated.View>
             </View>
-        </View >
+        </SafeAreaView >
     );
 }
 
@@ -755,8 +803,8 @@ const styles = StyleSheet.create({
     button: { backgroundColor: '#3F7EFC', padding: 15, borderRadius: 10 },
     buttonText: { color: '#fff', fontWeight: 'bold' },
     response: { fontSize: 18, textAlign: 'center' },
-    backButton: { position: 'absolute', top: 40, left: 20 },
-    backText: { fontSize: 18, color: '#3F7EFC' },
+    backButton: { flexDirection: 'row', width: '100%', marginBottom: 10, marginTop: 20 },
+    backText: { fontSize: 18, color: '#25b694' },
     micContainer: {
         position: 'absolute',
         bottom: 70,

@@ -30,8 +30,8 @@ export default function WelcomeScreen() {
                     itemStyle={{ fontSize: 18 }}
                 >
                     <Picker.Item label="English" value="en" />
-                    <Picker.Item label="Arabic" value="ar" />
-                    <Picker.Item label="French" value="fr" />
+                    {/* <Picker.Item label="Arabic" value="ar" />
+                    <Picker.Item label="French" value="fr" /> */}
                 </Picker>
             </View>
 
