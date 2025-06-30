@@ -622,184 +622,187 @@ export default function VoiceChatScreen() {
     const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
 
     return (
-        <SafeAreaView style={styles.container}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                <Text style={styles.backText}>&lt; Back</Text>
-            </TouchableOpacity>
+        <SafeAreaView style={styles.containerSafeArea}>
+            <View style={styles.container}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Text style={styles.backText}>&lt; Back</Text>
+                </TouchableOpacity>
 
-            <View style={styles.chatWrapper}>
-                <LinearGradient
-                    colors={['#f4f4f4', 'rgba(255,255,255,0)']}
-                    style={styles.topGradient}
-                    pointerEvents="none"
-                />
-                <ScrollView style={styles.chatScroller}
-                    ref={scrollRef}
-                    onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-                >
-                    {initialLoad ?
-                        (
-                            <Text>Loading</Text>
-                        ) : (
+                <View style={styles.chatWrapper}>
+                    <LinearGradient
+                        colors={['#f4f4f4', 'rgba(255,255,255,0)']}
+                        style={styles.topGradient}
+                        pointerEvents="none"
+                    />
+                    <ScrollView style={styles.chatScroller}
+                        ref={scrollRef}
+                        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+                    >
+                        {initialLoad ?
+                            (
+                                <Text>Loading</Text>
+                            ) : (
 
-                            messages.map((msg, idx) => (
-                                <View
-                                    key={idx}
-                                    style={[
-                                        styles.chatBubble,
-                                        msg.type === 'user' ? styles.userBubble : null
-                                    ]}
-                                >
-                                    {msg.type === 'dialog' ? (
-                                        <View style={[
-                                            styles.chatText,
-                                            msg.type === 'user' ? styles.userText : null,
-                                            { width: '100%' }
-                                        ]}>
-                                            {!voices && <Text>Loading voices...</Text>}
-                                            {voices && (
-                                                <>
-                                                    {voices.slice(0, visibleVoicesCount).map((v) => (
-                                                        <View
-                                                            key={v.voice_id}
-                                                            style={[styles.voice, {
-                                                                // backgroundColor: selectedVoiceId === v.voice_id ? 'rgb(34, 169, 137)' : '#ddd'
-                                                                backgroundColor: '#ddd'
-                                                            }]}>
-
-                                                            <View style={styles.voiceHead}>
-                                                                <View style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}>
-                                                                    {/* <TouchableOpacity onPress={() => setSelectedVoiceId(v.voice_id)}  style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}> */}
-                                                                    <Text style={[
-                                                                        styles.voiceTitle,
-                                                                        // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
-                                                                    ]
-                                                                    }>{v.name}</Text>
-                                                                    {v.labels?.accent && <Text style={
-                                                                        [styles.voiceAccent,
-                                                                            // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
-
-                                                                        ]}>{capitalize(v.labels.accent)}</Text>}
-                                                                    {v.labels?.language && <Text style={
-                                                                        [styles.voiceLanguage,
-                                                                            // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
-
-                                                                        ]}>{capitalize(v.labels.language)}</Text>}
-                                                                    {/* </TouchableOpacity> */}
-                                                                </View>
-                                                                <View>
-                                                                    {previewing == v.voice_id ? (
-                                                                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={handleStop}>
-                                                                            <FontAwesome name="stop" size={12} color="black" />
-                                                                            <Text>Stop</Text>
-                                                                        </TouchableOpacity>
-                                                                    ) : (
-                                                                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={() => handlePreview(v.voice_id, v.preview_url)}>
-                                                                            <FontAwesome name="play" size={12} color="black" />
-                                                                            <Text>Preview</Text>
-                                                                        </TouchableOpacity>
-                                                                    )}
-                                                                </View>
-                                                            </View>
-
-                                                        </View>
-                                                    ))}
-
-                                                    {visibleVoicesCount < voices.length && (
-                                                        <TouchableOpacity onPress={() => setVisibleVoicesCount(prev => prev + 5)}>
-                                                            <Text style={{ alignSelf: 'center', color: '#007AFF', marginTop: 8 }}>Show more voices</Text>
-                                                        </TouchableOpacity>
-                                                    )}
-                                                </>
-                                            )}
-                                        </View>
-                                    ) : (
-                                        <Text
-                                            style={[
+                                messages.map((msg, idx) => (
+                                    <View
+                                        key={idx}
+                                        style={[
+                                            styles.chatBubble,
+                                            msg.type === 'user' ? styles.userBubble : null
+                                        ]}
+                                    >
+                                        {msg.type === 'dialog' ? (
+                                            <View style={[
                                                 styles.chatText,
-                                                msg.type === 'user' ? styles.userText : null
-                                            ]}
-                                        >
-                                            {msg.type == 'ai' && msg.status == 'pending' && 'Thinking'}
-                                            {msg.type == 'ai' && msg.status == 'done' && msg.text}
-                                            {msg.type == 'user' && msg.text}
-                                        </Text>
-                                    )}
-                                </View>
-                            ))
+                                                msg.type === 'user' ? styles.userText : null,
+                                                { width: '100%' }
+                                            ]}>
+                                                {!voices && <Text>Loading voices...</Text>}
+                                                {voices && (
+                                                    <>
+                                                        {voices.slice(0, visibleVoicesCount).map((v) => (
+                                                            <View
+                                                                key={v.voice_id}
+                                                                style={[styles.voice, {
+                                                                    // backgroundColor: selectedVoiceId === v.voice_id ? 'rgb(34, 169, 137)' : '#ddd'
+                                                                    backgroundColor: '#ddd'
+                                                                }]}>
 
-                        )
+                                                                <View style={styles.voiceHead}>
+                                                                    <View style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}>
+                                                                        {/* <TouchableOpacity onPress={() => setSelectedVoiceId(v.voice_id)}  style={[styles.voiceHead, { flex: 1, justifyContent: 'flex-start' }]}> */}
+                                                                        <Text style={[
+                                                                            styles.voiceTitle,
+                                                                            // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
+                                                                        ]
+                                                                        }>{v.name}</Text>
+                                                                        {v.labels?.accent && <Text style={
+                                                                            [styles.voiceAccent,
+                                                                                // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
+
+                                                                            ]}>{capitalize(v.labels.accent)}</Text>}
+                                                                        {v.labels?.language && <Text style={
+                                                                            [styles.voiceLanguage,
+                                                                                // { color: selectedVoiceId === v.voice_id ? '#fff' : '#000' }
+
+                                                                            ]}>{capitalize(v.labels.language)}</Text>}
+                                                                        {/* </TouchableOpacity> */}
+                                                                    </View>
+                                                                    <View>
+                                                                        {previewing == v.voice_id ? (
+                                                                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={handleStop}>
+                                                                                <FontAwesome name="stop" size={12} color="black" />
+                                                                                <Text>Stop</Text>
+                                                                            </TouchableOpacity>
+                                                                        ) : (
+                                                                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', columnGap: 5 }} onPress={() => handlePreview(v.voice_id, v.preview_url)}>
+                                                                                <FontAwesome name="play" size={12} color="black" />
+                                                                                <Text>Preview</Text>
+                                                                            </TouchableOpacity>
+                                                                        )}
+                                                                    </View>
+                                                                </View>
+
+                                                            </View>
+                                                        ))}
+
+                                                        {visibleVoicesCount < voices.length && (
+                                                            <TouchableOpacity onPress={() => setVisibleVoicesCount(prev => prev + 5)}>
+                                                                <Text style={{ alignSelf: 'center', color: '#007AFF', marginTop: 8 }}>Show more voices</Text>
+                                                            </TouchableOpacity>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </View>
+                                        ) : (
+                                            <Text
+                                                style={[
+                                                    styles.chatText,
+                                                    msg.type === 'user' ? styles.userText : null
+                                                ]}
+                                            >
+                                                {msg.type == 'ai' && msg.status == 'pending' && 'Thinking'}
+                                                {msg.type == 'ai' && msg.status == 'done' && msg.text}
+                                                {msg.type == 'user' && msg.text}
+                                            </Text>
+                                        )}
+                                    </View>
+                                ))
+
+                            )
+                        }
+
+                    </ScrollView>
+                </View >
+
+                <View style={styles.bubbleContainer}>
+                    {scaleAnims.map((scale, i) => (
+                        <Animated.View
+                            key={i}
+                            style={[
+                                styles.bubble,
+                                bubbleShapes[i],
+                                {
+                                    backgroundColor: bubbleColors[i],
+                                    opacity: opacityAnims[i],
+                                    shadowColor: bubbleColors[i].replace(/rgba\((.+),\s*[\d\.]+\)/, 'rgba($1, 0.6)'),
+                                    transform: [
+                                        { scale },
+                                        { translateX: moveAnims[i].x },
+                                        { translateY: moveAnims[i].y },
+                                    ],
+                                },
+                            ]}
+                        />
+                    ))}
+                </View>
+
+                {/* <TouchableOpacity onPress={openVoicePopup} style={styles.changeVoiceButtonContainer}>
+                    <Text style={styles.changeVoiceButton}>Change voice</Text>
+                </TouchableOpacity> */}
+
+                <View style={styles.micContainer}>
+                    <Animated.Text style={[styles.micContainerTimer, { opacity: infoOpacity }]}>
+                        {isRecording && <Text>{formatTimer(recordingSeconds)}</Text>}
+                    </Animated.Text>
+
+                    {isRecording &&
+                        <Animated.View style={[styles.micContainerHint, { opacity: infoOpacity }]}>
+                            <View style={styles.micContainerHintWrapper}>
+                                <Entypo name="chevron-left" size={24} color="black" />
+                                <Text style={styles.micContainerHintText}>Slide to cancel</Text>
+                            </View>
+                        </Animated.View>
                     }
-
-                </ScrollView>
-            </View >
-
-            <View style={styles.bubbleContainer}>
-                {scaleAnims.map((scale, i) => (
+                    {!isRecording &&
+                        <View style={styles.micContainerHint}>
+                            <Text style={styles.micContainerHintText}>Hold to record</Text>
+                        </View>
+                    }
                     <Animated.View
-                        key={i}
+                        {...panResponder.panHandlers}
                         style={[
-                            styles.bubble,
-                            bubbleShapes[i],
+                            styles.micButton,
                             {
-                                backgroundColor: bubbleColors[i],
-                                opacity: opacityAnims[i],
-                                shadowColor: bubbleColors[i].replace(/rgba\((.+),\s*[\d\.]+\)/, 'rgba($1, 0.6)'),
-                                transform: [
-                                    { scale },
-                                    { translateX: moveAnims[i].x },
-                                    { translateY: moveAnims[i].y },
-                                ],
+                                transform: [{ translateX: dragX }],
+                                backgroundColor: isCancelled ? '#ff3b30' : '#25b694',
+
                             },
                         ]}
-                    />
-                ))}
-            </View>
-
-            {/* <TouchableOpacity onPress={openVoicePopup} style={styles.changeVoiceButtonContainer}>
-                <Text style={styles.changeVoiceButton}>Change voice</Text>
-            </TouchableOpacity> */}
-
-            <View style={styles.micContainer}>
-                <Animated.Text style={[styles.micContainerTimer, { opacity: infoOpacity }]}>
-                    {isRecording && <Text>{formatTimer(recordingSeconds)}</Text>}
-                </Animated.Text>
-
-                {isRecording &&
-                    <Animated.View style={[styles.micContainerHint, { opacity: infoOpacity }]}>
-                        <View style={styles.micContainerHintWrapper}>
-                            <Entypo name="chevron-left" size={24} color="black" />
-                            <Text style={styles.micContainerHintText}>Slide to cancel</Text>
-                        </View>
+                    >
+                        <Text style={styles.buttonText}>
+                            <FontAwesome name="microphone" size={30} color="white" />
+                        </Text>
                     </Animated.View>
-                }
-                {!isRecording &&
-                    <View style={styles.micContainerHint}>
-                        <Text style={styles.micContainerHintText}>Hold to record</Text>
-                    </View>
-                }
-                <Animated.View
-                    {...panResponder.panHandlers}
-                    style={[
-                        styles.micButton,
-                        {
-                            transform: [{ translateX: dragX }],
-                            backgroundColor: isCancelled ? '#ff3b30' : '#25b694',
-
-                        },
-                    ]}
-                >
-                    <Text style={styles.buttonText}>
-                        <FontAwesome name="microphone" size={30} color="white" />
-                    </Text>
-                </Animated.View>
+                </View>
             </View>
         </SafeAreaView >
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: 20, backgroundColor: '#f4f4f4' },
+    containerSafeArea: { flex: 1, backgroundColor: '#f4f4f4' },
+    container: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: 20},
     button: { backgroundColor: '#3F7EFC', padding: 15, borderRadius: 10 },
     buttonText: { color: '#fff', fontWeight: 'bold' },
     response: { fontSize: 18, textAlign: 'center' },
