@@ -122,7 +122,7 @@ io.on('connection', (socket) => {
     - If user asks about voices: "Here is a list of available voices. Just tell me the voice name you like." then pause the grocery conversation until you have a voice confirmation
     - If user confirms a voice by its name: "This is the voice you chose. Do you like it or you would like to change it again?" then either loop back with the voice until the user chooses or continue the grocery conversation i user confirms again
     - Once in the conversation assure the user that this process will be for one time only saying "Don't worry, you need to answer these questions only for the first time just to get to know you better and help you save on your cart"
-    - When all data is collected end the conversation with a summary of everything you know including the user name ${userName} and user's language ${language}
+    - When all data is collected end the conversation with a summary of everything you know including the user name ${userName} and user's language ${userLang}
 
     EXAMPLE FLOW:
     AI: Hi ${userName}! Ready to save on groceries? Start by telling me which days do you usually go shopping for groceries.
