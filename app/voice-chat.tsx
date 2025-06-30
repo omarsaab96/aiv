@@ -84,7 +84,7 @@ export default function VoiceChatScreen() {
     const isCancelledRef = useRef(false);
     const dragX = useRef(new Animated.Value(0)).current;
     const socketRef = useRef(null);
-    const ecoMode = true;
+    const ecoMode = false;
 
     const intervalRef = useRef(null);
 
@@ -220,11 +220,15 @@ export default function VoiceChatScreen() {
     };
 
     const fetchVoices = async () => {
+        console.log("getting voices")
+
         const res = await fetch(`${ELEVEN_BASE}/voices`, {
             headers: { 'xi-api-key': ELEVEN_API_KEY }
         });
         const json = await res.json();
         setVoices(json.voices);
+
+        console.log("Got " + json.voices.length + " voices")
 
         const formattedVoices = json.voices.map(v => ({
             voice_id: v.voice_id,
