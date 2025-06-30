@@ -11,7 +11,7 @@ export default function WelcomeScreen() {
     const startChat = () => {
         if (!name.trim()) return alert('Please enter your name');
         router.push({
-            pathname: '/VoiceChatScreen',
+            pathname: '/voice-chat',
             params: { name, language }
         });
     };
