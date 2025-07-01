@@ -71,7 +71,7 @@ export default function VoiceChatScreen() {
     const TAP_THRESHOLD_MS = 100;
     const selectedVoiceIdRef = useRef(selectedVoiceId);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [initialLoad, setInitialLoad] = useState(false);
+    const [initialLoad, setInitialLoad] = useState(true);
     const [previewing, setPreviewing] = useState(null);
     const previewRef = useRef<Audio.Sound | null>(null);
     const [visibleVoicesCount, setVisibleVoicesCount] = useState(3);
@@ -335,9 +335,13 @@ export default function VoiceChatScreen() {
 
                     setIsSpeaking(true)
                     setInitialLoad(false)
+                    setMessages(prev => prev.map((msg, idx) =>
+                        msg.status === 'pending' ? { ...msg, status: 'done' } : msg
+                    ));
                     await sound.playAsync();
 
                     if (text.includes("Please choose a voice from the list.") || text.includes("Just say the name of the voice you want from the list below.") || text.includes("Here is a list of available voices.")) {
+                        setVisibleVoicesCount(3)
                         setMessages((prev) => [...prev, { type: 'dialog', title: "Voice menu" }]);
                     }
                 };
@@ -402,7 +406,6 @@ export default function VoiceChatScreen() {
             newSocket.emit('setup', { language, name, voices: formattedVoices, })
 
             setTimeout(() => {
-                setInitialLoad(true)
                 newSocket.emit('greet_user');
             }, 500);
         });
@@ -806,7 +809,7 @@ export default function VoiceChatScreen() {
 
 const styles = StyleSheet.create({
     containerSafeArea: { flex: 1, backgroundColor: '#f4f4f4' },
-    container: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: 20},
+    container: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: 20 },
     button: { backgroundColor: '#3F7EFC', padding: 15, borderRadius: 10 },
     buttonText: { color: '#fff', fontWeight: 'bold' },
     response: { fontSize: 18, textAlign: 'center' },
